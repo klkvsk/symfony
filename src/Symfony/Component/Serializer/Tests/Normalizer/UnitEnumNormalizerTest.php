@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Serializer\Exception\InvalidArgumentException;
 use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
 use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
-use Symfony\Component\Serializer\Normalizer\NonBackedEnumNormalizer;
+use Symfony\Component\Serializer\Normalizer\UnitEnumNormalizer;
 use Symfony\Component\Serializer\Tests\Fixtures\IntegerBackedEnumDummy;
 use Symfony\Component\Serializer\Tests\Fixtures\StringBackedEnumDummy;
 use Symfony\Component\Serializer\Tests\Fixtures\UnitEnumDummy;
@@ -23,16 +23,16 @@ use Symfony\Component\Serializer\Tests\Fixtures\UnitEnumDummy;
 /**
  * @author Misha Kulakovsky <misha@kulakovs.ky>
  */
-class NonBackedEnumNormalizerTest extends TestCase
+class UnitEnumNormalizerTest extends TestCase
 {
     /**
-     * @var NonBackedEnumNormalizer
+     * @var UnitEnumNormalizer
      */
     private $normalizer;
 
     protected function setUp(): void
     {
-        $this->normalizer = new NonBackedEnumNormalizer();
+        $this->normalizer = new UnitEnumNormalizer();
     }
 
     public function testSupportsNormalization()
@@ -91,7 +91,7 @@ class NonBackedEnumNormalizerTest extends TestCase
     public function testDenormalizeBadCaseThrowsException()
     {
         $this->expectException(NotNormalizableValueException::class);
-        $this->expectExceptionMessage('The data must belong to a non-backed enumeration of type '.UnitEnumDummy::class);
+        $this->expectExceptionMessage('The data must belong to an enumeration of type '.UnitEnumDummy::class);
 
         $this->normalizer->denormalize('POST', UnitEnumDummy::class);
     }
@@ -99,7 +99,7 @@ class NonBackedEnumNormalizerTest extends TestCase
     public function testNormalizeShouldThrowExceptionForNonEnumObjects()
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The data must belong to a non-backed enumeration.');
+        $this->expectExceptionMessage('The data must belong to an enumeration.');
 
         $this->normalizer->normalize(\stdClass::class);
     }
@@ -107,15 +107,15 @@ class NonBackedEnumNormalizerTest extends TestCase
     public function testNormalizeShouldThrowExceptionForBackedEnumObjects()
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The data must belong to a non-backed enumeration.');
+        $this->expectExceptionMessage('The data must belong to a non-backed enumeration, or pass');
 
-        $this->normalizer->normalize(\StringBackedEnum::class);
+        $this->normalizer->normalize(StringBackedEnumDummy::GET);
     }
 
     public function testDenormalizeShouldThrowExceptionForNonEnumObjects()
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The data must belong to a non-backed enumeration.');
+        $this->expectExceptionMessage('The data must belong to an enumeration.');
 
         $this->normalizer->denormalize('GET', \stdClass::class);
     }
@@ -123,9 +123,9 @@ class NonBackedEnumNormalizerTest extends TestCase
     public function testDenormalizeShouldThrowExceptionForBackedEnumObjects()
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The data must belong to a non-backed enumeration.');
+        $this->expectExceptionMessage('The data must belong to a non-backed enumeration, or pass');
 
-        $this->normalizer->denormalize('GET', \StringBackedEnum::class);
+        $this->normalizer->denormalize('GET', StringBackedEnumDummy::class);
     }
 
     public function testSupportsNormalizationShouldFailOnAnyPHPVersionForNonEnumObjects()
@@ -160,6 +160,24 @@ class NonBackedEnumNormalizerTest extends TestCase
                 null,
                 [BackedEnumNormalizer::ALLOW_INVALID_VALUES => true]
             )
+        );
+    }
+
+    public function testItCanNormalizeBackedEnumsIfContextIsPassed()
+    {
+        $this->assertSame('SUCCESS', $this->normalizer->normalize(IntegerBackedEnumDummy::SUCCESS, null, [ UnitEnumNormalizer::BACKED_ENUM_PREFER_NAMES => true ]));
+        $this->assertSame('GET', $this->normalizer->normalize(StringBackedEnumDummy::GET, null, [ UnitEnumNormalizer::BACKED_ENUM_PREFER_NAMES => true ]));
+    }
+
+    public function testItCanDenormalizeBackedEnumsIfContextIsPassed()
+    {
+        $this->assertSame(
+            IntegerBackedEnumDummy::SUCCESS,
+            $this->normalizer->denormalize('SUCCESS', IntegerBackedEnumDummy::class, null, [ UnitEnumNormalizer::BACKED_ENUM_PREFER_NAMES => true ])
+        );
+        $this->assertSame(
+            StringBackedEnumDummy::GET,
+            $this->normalizer->denormalize('GET', StringBackedEnumDummy::class, null, [ UnitEnumNormalizer::BACKED_ENUM_PREFER_NAMES => true ])
         );
     }
 

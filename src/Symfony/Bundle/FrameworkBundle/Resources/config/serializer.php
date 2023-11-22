@@ -42,6 +42,7 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\FormErrorNormalizer;
 use Symfony\Component\Serializer\Normalizer\JsonSerializableNormalizer;
 use Symfony\Component\Serializer\Normalizer\MimeMessageNormalizer;
+use Symfony\Component\Serializer\Normalizer\UnitEnumNormalizer;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Normalizer\ProblemNormalizer;
@@ -210,6 +211,9 @@ return static function (ContainerConfigurator $container) {
                     ->factory([HtmlErrorRenderer::class, 'isDebug'])
                     ->args([service('request_stack'), param('kernel.debug')]),
             ])
+
+        ->set('serializer.normalizer.enum', UnitEnumNormalizer::class)
+            ->tag('serializer.normalizer', ['priority' => -920])
 
         ->set('serializer.normalizer.backed_enum', BackedEnumNormalizer::class)
             ->tag('serializer.normalizer', ['priority' => -915])

@@ -25,7 +25,7 @@ final class BackedEnumNormalizer implements NormalizerInterface, DenormalizerInt
     /**
      * If true, will denormalize any invalid value into null.
      */
-    public const ALLOW_INVALID_VALUES = 'allow_invalid_values';
+    public const ALLOW_INVALID_VALUES = UnitEnumNormalizer::ALLOW_INVALID_CASES;
 
     public function getSupportedTypes(?string $format): array
     {
