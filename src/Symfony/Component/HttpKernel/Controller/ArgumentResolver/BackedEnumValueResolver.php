@@ -12,6 +12,7 @@
 namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -24,6 +25,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class BackedEnumValueResolver implements ValueResolverInterface
 {
+    use ValueBagResolverTrait;
+
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
         if (!is_subclass_of($argument->getType(), \BackedEnum::class)) {
@@ -35,14 +38,16 @@ final class BackedEnumValueResolver implements ValueResolverInterface
             return [];
         }
 
+        $valueBag = $this->resolveValueBag($request, $argument);
+
         // do not support if no value can be resolved at all
         // letting the \Symfony\Component\HttpKernel\Controller\ArgumentResolver\DefaultValueResolver be used
         // or \Symfony\Component\HttpKernel\Controller\ArgumentResolver fail with a meaningful error.
-        if (!$request->attributes->has($argument->getName())) {
+        if (!$valueBag->has($argument->getName())) {
             return [];
         }
 
-        $value = $request->attributes->get($argument->getName());
+        $value = $valueBag->get($argument->getName());
 
         if (null === $value) {
             return [null];

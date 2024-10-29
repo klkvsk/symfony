@@ -14,6 +14,7 @@ namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\MapDateTime;
+use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -26,6 +27,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class DateTimeValueResolver implements ValueResolverInterface
 {
+    use ValueBagResolverTrait;
+
     public function __construct(
         private readonly ?ClockInterface $clock = null,
     ) {
@@ -33,11 +36,13 @@ final class DateTimeValueResolver implements ValueResolverInterface
 
     public function resolve(Request $request, ArgumentMetadata $argument): array
     {
-        if (!is_a($argument->getType(), \DateTimeInterface::class, true) || !$request->attributes->has($argument->getName())) {
+        $valueBag = $this->resolveValueBag($request, $argument);
+
+        if (!is_a($argument->getType(), \DateTimeInterface::class, true) || !$valueBag->has($argument->getName())) {
             return [];
         }
 
-        $value = $request->attributes->get($argument->getName());
+        $value = $valueBag->get($argument->getName());
         $class = \DateTimeInterface::class === $argument->getType() ? \DateTimeImmutable::class : $argument->getType();
 
         if (!$value) {

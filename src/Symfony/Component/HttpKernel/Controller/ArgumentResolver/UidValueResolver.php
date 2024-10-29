@@ -12,6 +12,7 @@
 namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -19,10 +20,14 @@ use Symfony\Component\Uid\AbstractUid;
 
 final class UidValueResolver implements ValueResolverInterface
 {
+    use ValueBagResolverTrait;
+
     public function resolve(Request $request, ArgumentMetadata $argument): array
     {
+        $valueBag = $this->resolveValueBag($request, $argument);
+
         if ($argument->isVariadic()
-            || !\is_string($value = $request->attributes->get($argument->getName()))
+            || !\is_string($value = $valueBag->get($argument->getName()))
             || null === ($uidClass = $argument->getType())
             || !is_subclass_of($uidClass, AbstractUid::class, true)
         ) {

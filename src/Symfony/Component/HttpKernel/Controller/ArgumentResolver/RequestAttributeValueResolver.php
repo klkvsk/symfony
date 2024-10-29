@@ -12,6 +12,7 @@
 namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
@@ -22,8 +23,12 @@ use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
  */
 final class RequestAttributeValueResolver implements ValueResolverInterface
 {
+    use ValueBagResolverTrait;
+
     public function resolve(Request $request, ArgumentMetadata $argument): array
     {
-        return !$argument->isVariadic() && $request->attributes->has($argument->getName()) ? [$request->attributes->get($argument->getName())] : [];
+        $valueBag = $this->resolveValueBag($request, $argument);
+
+        return !$argument->isVariadic() && $valueBag->has($argument->getName()) ? [ $valueBag->get($argument->getName()) ] : [];
     }
 }
