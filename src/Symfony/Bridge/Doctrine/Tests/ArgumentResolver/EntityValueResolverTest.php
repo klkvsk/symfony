@@ -23,6 +23,7 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 use Symfony\Component\ExpressionLanguage\SyntaxError;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Attribute\FromQuery;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -297,6 +298,39 @@ class EntityValueResolverTest extends TestCase
         $this->assertSame([$article], $resolver->resolve($request, $argument2));
     }
 
+
+    public function testResolveFromValueBag()
+    {
+        $manager = $this->createMock(ObjectManager::class);
+        $registry = $this->createRegistry($manager);
+        $resolver = new EntityValueResolver($registry);
+
+        $request = new Request();
+        $request->query->set('conference_place', 'vienna');
+        $request->query->set('conference_year', '2024');
+
+        $argument1 = $this->createArgument('Conference', new MapEntity('Conference', mapping: ['conference_place' => 'place', 'conference_year' => 'year']), 'conference', false, [ new FromQuery('*') ]);
+
+        $manager->expects($this->never())
+            ->method('getClassMetadata');
+
+        $conference = new \stdClass();
+
+        $repository = $this->createMock(ObjectRepository::class);
+        $repository->expects($this->any())
+            ->method('findOneBy')
+            ->willReturnCallback(static fn ($v) => match ($v) {
+                ['place' => 'vienna', 'year' => '2024' ] => $conference,
+                default => dd($v)
+            });
+
+        $manager->expects($this->any())
+            ->method('getRepository')
+            ->willReturn($repository);
+
+        $this->assertSame([$conference], $resolver->resolve($request, $argument1));
+    }
+
     public function testExceptionWithExpressionIfNoLanguageAvailable()
     {
         $manager = $this->createMock(ObjectManager::class);
@@ -474,9 +508,12 @@ class EntityValueResolverTest extends TestCase
         $this->assertSame([], $resolver->resolve($request, $argument));
     }
 
-    private function createArgument(?string $class = null, ?MapEntity $entity = null, string $name = 'arg', bool $isNullable = false): ArgumentMetadata
+    private function createArgument(?string $class = null, ?MapEntity $entity = null, string $name = 'arg', bool $isNullable = false, array $attributes = []): ArgumentMetadata
     {
-        return new ArgumentMetadata($name, $class ?? \stdClass::class, false, false, null, $isNullable, $entity ? [$entity] : []);
+        if ($entity) {
+            $attributes[] = $entity;
+        }
+        return new ArgumentMetadata($name, $class ?? \stdClass::class, false, false, null, $isNullable, $attributes);
     }
 
     private function createRegistry(?ObjectManager $manager = null): ManagerRegistry&MockObject

@@ -18,8 +18,10 @@ use Doctrine\Persistence\ManagerRegistry;
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
+use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
+use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -31,6 +33,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class EntityValueResolver implements ValueResolverInterface
 {
+    use ValueBagResolverTrait;
+
     public function __construct(
         private ManagerRegistry $registry,
         private ?ExpressionLanguage $expressionLanguage = null,
@@ -40,7 +44,9 @@ final class EntityValueResolver implements ValueResolverInterface
 
     public function resolve(Request $request, ArgumentMetadata $argument): array
     {
-        if (\is_object($request->attributes->get($argument->getName()))) {
+        $valueBag = $this->resolveValueBag($request, $argument);
+
+        if (\is_object($valueBag->get($argument->getName()))) {
             return [];
         }
 
@@ -56,13 +62,13 @@ final class EntityValueResolver implements ValueResolverInterface
 
         $message = '';
         if (null !== $options->expr) {
-            if (null === $object = $this->findViaExpression($manager, $request, $options)) {
+            if (null === $object = $this->findViaExpression($manager, $request, $options, $valueBag)) {
                 $message = \sprintf(' The expression "%s" returned null.', $options->expr);
             }
         // find by identifier?
-        } elseif (false === $object = $this->find($manager, $request, $options, $argument)) {
+        } elseif (false === $object = $this->find($manager, $request, $options, $argument, $valueBag)) {
             // find by criteria
-            if (!$criteria = $this->getCriteria($request, $options, $manager, $argument)) {
+            if (!$criteria = $this->getCriteria($request, $options, $manager, $argument, $valueBag)) {
                 return [];
             }
             try {
@@ -94,13 +100,13 @@ final class EntityValueResolver implements ValueResolverInterface
         return $manager->getMetadataFactory()->isTransient($class) ? null : $manager;
     }
 
-    private function find(ObjectManager $manager, Request $request, MapEntity $options, ArgumentMetadata $argument): false|object|null
+    private function find(ObjectManager $manager, Request $request, MapEntity $options, ArgumentMetadata $argument, ParameterBag $valueBag): false|object|null
     {
         if ($options->mapping || $options->exclude) {
             return false;
         }
 
-        $id = $this->getIdentifier($request, $options, $argument);
+        $id = $this->getIdentifier($request, $options, $argument, $valueBag);
         if (false === $id || null === $id) {
             return $id;
         }
@@ -122,7 +128,7 @@ final class EntityValueResolver implements ValueResolverInterface
         }
     }
 
-    private function getIdentifier(Request $request, MapEntity $options, ArgumentMetadata $argument): mixed
+    private function getIdentifier(Request $request, MapEntity $options, ArgumentMetadata $argument, ParameterBag $valueBag): mixed
     {
         if (\is_array($options->id)) {
             $id = [];
@@ -132,24 +138,24 @@ final class EntityValueResolver implements ValueResolverInterface
                     $field = \sprintf($field, $argument->getName());
                 }
 
-                $id[$field] = $request->attributes->get($field);
+                $id[$field] = $valueBag->get($field);
             }
 
             return $id;
         }
 
         if ($options->id) {
-            return $request->attributes->get($options->id) ?? ($options->stripNull ? false : null);
+            return $valueBag->get($options->id) ?? ($options->stripNull ? false : null);
         }
 
         $name = $argument->getName();
 
-        if ($request->attributes->has($name)) {
-            if (\is_array($id = $request->attributes->get($name))) {
+        if ($valueBag->has($name)) {
+            if (\is_array($id = $valueBag->get($name))) {
                 return false;
             }
 
-            foreach ($request->attributes->get('_route_mapping') ?? [] as $parameter => $attribute) {
+            foreach ($valueBag->get('_route_mapping') ?? [] as $parameter => $attribute) {
                 if ($name === $attribute) {
                     $options->mapping = [$name => $parameter];
 
@@ -160,16 +166,16 @@ final class EntityValueResolver implements ValueResolverInterface
             return $id ?? ($options->stripNull ? false : null);
         }
 
-        if ($request->attributes->has('id')) {
-            return $request->attributes->get('id') ?? ($options->stripNull ? false : null);
+        if ($valueBag->has('id')) {
+            return $valueBag->get('id') ?? ($options->stripNull ? false : null);
         }
 
         return false;
     }
 
-    private function getCriteria(Request $request, MapEntity $options, ObjectManager $manager, ArgumentMetadata $argument): array
+    private function getCriteria(Request $request, MapEntity $options, ObjectManager $manager, ArgumentMetadata $argument, ParameterBag $valueBag): array
     {
-        if (!($mapping = $options->mapping) && \is_array($criteria = $request->attributes->get($argument->getName()))) {
+        if (!($mapping = $options->mapping) && \is_array($criteria = $valueBag->get($argument->getName()))) {
             foreach ($options->exclude as $exclude) {
                 unset($criteria[$exclude]);
             }
@@ -181,7 +187,7 @@ final class EntityValueResolver implements ValueResolverInterface
             return $criteria;
         } elseif (null === $mapping) {
             trigger_deprecation('symfony/doctrine-bridge', '7.1', 'Relying on auto-mapping for Doctrine entities is deprecated for argument $%s of "%s": declare the identifier using either the #[MapEntity] attribute or mapped route parameters.', $argument->getName(), method_exists($argument, 'getControllerName') ? $argument->getControllerName() : 'n/a');
-            $mapping = $request->attributes->keys();
+            $mapping = $valueBag->keys();
         }
 
         if ($mapping && array_is_list($mapping)) {
@@ -204,7 +210,7 @@ final class EntityValueResolver implements ValueResolverInterface
                 continue;
             }
 
-            $criteria[$field] = $request->attributes->get($attribute);
+            $criteria[$field] = $valueBag->get($attribute);
         }
 
         if ($options->stripNull) {
@@ -214,14 +220,14 @@ final class EntityValueResolver implements ValueResolverInterface
         return $criteria;
     }
 
-    private function findViaExpression(ObjectManager $manager, Request $request, MapEntity $options): object|iterable|null
+    private function findViaExpression(ObjectManager $manager, Request $request, MapEntity $options, ParameterBag $valueBag): object|iterable|null
     {
         if (!$this->expressionLanguage) {
             throw new \LogicException(\sprintf('You cannot use the "%s" if the ExpressionLanguage component is not available. Try running "composer require symfony/expression-language".', __CLASS__));
         }
 
         $repository = $manager->getRepository($options->class);
-        $variables = array_merge($request->attributes->all(), [
+        $variables = array_merge($valueBag->all(), [
             'repository' => $repository,
             'request' => $request,
         ]);

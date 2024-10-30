@@ -63,7 +63,7 @@ trait ValueBagResolverTrait
             if ($argument->getType() === 'bool') {
                 $options['flags'] |= FILTER_NULL_ON_FAILURE;
             }
-            if ($argument->getType() === 'array' || $argument->isVariadic()) {
+            if ($argument->getType() === 'array' || $argument->isVariadic() || $requestParameterName === '*') {
                 $options['flags'] |= FILTER_REQUIRE_ARRAY | FILTER_FORCE_ARRAY;
             }
 
