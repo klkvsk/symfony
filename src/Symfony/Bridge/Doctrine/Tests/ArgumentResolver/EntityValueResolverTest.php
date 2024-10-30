@@ -419,6 +419,58 @@ class EntityValueResolverTest extends TestCase
         $this->assertSame([$object], $resolver->resolve($request, $argument));
     }
 
+    public static function provideExpressionMapsToArgumentFromQueryExpressions(): array
+    {
+        return [
+            'with args in global scope' => [ 'repository.findByPlaceAndYear(place, year)' ],
+            'with args in argument value scope' => [ 'repository.findByPlaceAndYear(conference.place, conference.year)' ]
+        ];
+    }
+
+    /** @dataProvider provideExpressionMapsToArgumentFromQueryExpressions */
+    public function testExpressionMapsToArgumentFromQuery(string $expr)
+    {
+        $manager = $this->createMock(ObjectManager::class);
+        $registry = $this->createRegistry($manager);
+        $language = $this->createMock(ExpressionLanguage::class);
+        $resolver = new EntityValueResolver($registry, $language);
+
+        $request = new Request();
+        $request->query->set('place', 'vienna');
+        $request->query->set('year', '2024');
+
+        $argument = $this->createArgument(
+            'stdClass',
+            new MapEntity(expr: $expr),
+            'conference',
+            false,
+            [ new FromQuery('*') ]
+        );
+
+        $repository = $this->createMock(ObjectRepository::class);
+        // find should not be attempted on this repository as a fallback
+        $repository->expects($this->never())
+            ->method('find');
+
+        $manager->expects($this->once())
+            ->method('getRepository')
+            ->with(\stdClass::class)
+            ->willReturn($repository);
+
+        $language->expects($this->once())
+            ->method('evaluate')
+            ->with($expr, [
+                'repository' => $repository,
+                'request' => $request,
+                'place' => 'vienna',
+                'year' => '2024',
+                'conference' => [ 'place' => 'vienna', 'year' => '2024' ]
+            ])
+            ->willReturn($object = new \stdClass());
+
+        $this->assertSame([$object], $resolver->resolve($request, $argument));
+    }
+
     public function testExpressionMapsToIterableArgument()
     {
         $manager = $this->createMock(ObjectManager::class);
