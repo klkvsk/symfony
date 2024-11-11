@@ -18,7 +18,6 @@ use Symfony\Component\HttpKernel\Controller\ArgumentResolver\DefaultValueResolve
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\RequestAttributeValueResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\RequestValueResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver\SessionValueResolver;
-use Symfony\Component\HttpKernel\Controller\ArgumentResolver\VariadicValueResolver;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadataFactory;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadataFactoryInterface;
 use Symfony\Component\HttpKernel\Exception\NearMissValueResolverException;
@@ -135,7 +134,6 @@ final class ArgumentResolver implements ArgumentResolverInterface
             new RequestValueResolver(),
             new SessionValueResolver(),
             new DefaultValueResolver(),
-            new VariadicValueResolver(),
         ];
     }
 }

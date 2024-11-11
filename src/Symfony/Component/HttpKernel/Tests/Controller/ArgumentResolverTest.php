@@ -169,13 +169,12 @@ class ArgumentResolverTest extends TestCase
 
     public function testGetVariadicArgumentsWithoutArrayInRequest()
     {
-        $this->expectException(\InvalidArgumentException::class);
         $request = Request::create('/');
         $request->attributes->set('foo', 'foo');
         $request->attributes->set('bar', 'foo');
         $controller = [new VariadicController(), 'action'];
 
-        self::getResolver()->getArguments($request, $controller);
+        $this->assertEquals(['foo', 'foo'], self::getResolver()->getArguments($request, $controller));
     }
 
     public function testIfExceptionIsThrownWhenMissingAnArgument()

@@ -21,7 +21,7 @@ use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
-use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
+use Symfony\Component\HttpKernel\Controller\RequestParameterValueResolverTrait;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -33,7 +33,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class EntityValueResolver implements ValueResolverInterface
 {
-    use ValueBagResolverTrait;
+    use RequestParameterValueResolverTrait;
 
     public function __construct(
         private ManagerRegistry $registry,
@@ -42,10 +42,14 @@ final class EntityValueResolver implements ValueResolverInterface
     ) {
     }
 
-    public function resolve(Request $request, ArgumentMetadata $argument): array
+    protected function supports(ArgumentMetadata $argument): bool
     {
-        $valueBag = $this->resolveValueBag($request, $argument);
+        return $argument->getAttributes(MapEntity::class, ArgumentMetadata::IS_INSTANCEOF)
+            || ($argument->getType() && $this->getManager($this->defaults->objectManager, $argument->getType()));
+    }
 
+    protected function resolveValue(Request $request, ArgumentMetadata $argument, ParameterBag $valueBag): array
+    {
         if (\is_object($valueBag->get($argument->getName()))) {
             return [];
         }
@@ -68,7 +72,7 @@ final class EntityValueResolver implements ValueResolverInterface
         // find by identifier?
         } elseif (false === $object = $this->find($manager, $request, $options, $argument, $valueBag)) {
             // find by criteria
-            if (!$criteria = $this->getCriteria($request, $options, $manager, $argument, $valueBag)) {
+            if (!$criteria = $this->getCriteria($options, $manager, $argument, $valueBag)) {
                 return [];
             }
             try {
@@ -106,7 +110,7 @@ final class EntityValueResolver implements ValueResolverInterface
             return false;
         }
 
-        $id = $this->getIdentifier($request, $options, $argument, $valueBag);
+        $id = $this->getIdentifier($options, $argument, $valueBag);
         if (false === $id || null === $id) {
             return $id;
         }
@@ -128,7 +132,7 @@ final class EntityValueResolver implements ValueResolverInterface
         }
     }
 
-    private function getIdentifier(Request $request, MapEntity $options, ArgumentMetadata $argument, ParameterBag $valueBag): mixed
+    private function getIdentifier(MapEntity $options, ArgumentMetadata $argument, ParameterBag $valueBag): mixed
     {
         if (\is_array($options->id)) {
             $id = [];
@@ -173,7 +177,7 @@ final class EntityValueResolver implements ValueResolverInterface
         return false;
     }
 
-    private function getCriteria(Request $request, MapEntity $options, ObjectManager $manager, ArgumentMetadata $argument, ParameterBag $valueBag): array
+    private function getCriteria(MapEntity $options, ObjectManager $manager, ArgumentMetadata $argument, ParameterBag $valueBag): array
     {
         if (!($mapping = $options->mapping) && \is_array($criteria = $valueBag->get($argument->getName()))) {
             foreach ($options->exclude as $exclude) {

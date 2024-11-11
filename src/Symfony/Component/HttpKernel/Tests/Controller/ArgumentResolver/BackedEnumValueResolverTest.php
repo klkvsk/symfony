@@ -24,11 +24,11 @@ class BackedEnumValueResolverTest extends TestCase
     /**
      * @dataProvider provideTestSupportsData
      */
-    public function testSupports(Request $request, ArgumentMetadata $metadata, bool $expectedSupport)
+    public function testSupports(Request $request, ArgumentMetadata $metadata, bool|int $expected)
     {
         $resolver = new BackedEnumValueResolver();
 
-        $this->assertCount((int) $expectedSupport, $resolver->resolve($request, $metadata));
+        $this->assertCount((int) $expected, $resolver->resolve($request, $metadata));
     }
 
     public static function provideTestSupportsData(): iterable
@@ -57,14 +57,24 @@ class BackedEnumValueResolverTest extends TestCase
             false,
         ];
 
-        yield 'unsupported variadic' => [
+        yield 'supported variadic' => [
             self::createRequest(['suit' => ['H', 'S']]),
             self::createArgumentMetadata(
                 'suit',
                 Suit::class,
                 variadic: true,
             ),
-            false,
+            2,
+        ];
+
+        yield 'supported variadic as single' => [
+            self::createRequest(['suit' => 'H']),
+            self::createArgumentMetadata(
+                'suit',
+                Suit::class,
+                variadic: true,
+            ),
+            1,
         ];
     }
 

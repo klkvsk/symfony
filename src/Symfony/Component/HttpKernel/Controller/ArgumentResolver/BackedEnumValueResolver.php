@@ -11,35 +11,31 @@
 
 namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 
+use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
+use Symfony\Component\HttpKernel\Controller\RequestParameterValueResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Attempt to resolve backed enum cases from request attributes, for a route path parameter,
- * leading to a 404 Not Found if the attribute value isn't a valid backing value for the enum type.
+ * Attempt to resolve backed enum cases from request parameters,
+ * leading to a 404 Not Found if the parameter value isn't a valid backing value for the enum type.
  *
  * @author Maxime Steinhausser <maxime.steinhausser@gmail.com>
+ * @author Mike Kulakovsky <mike@kulakovs.ky>
  */
 final class BackedEnumValueResolver implements ValueResolverInterface
 {
-    use ValueBagResolverTrait;
+    use RequestParameterValueResolverTrait;
 
-    public function resolve(Request $request, ArgumentMetadata $argument): iterable
+    protected function supports(ArgumentMetadata $argument): bool
     {
-        if (!is_subclass_of($argument->getType(), \BackedEnum::class)) {
-            return [];
-        }
+        return is_subclass_of($argument->getType(), \BackedEnum::class);
+    }
 
-        if ($argument->isVariadic()) {
-            // only target route path parameters, which cannot be variadic.
-            return [];
-        }
-
-        $valueBag = $this->resolveValueBag($request, $argument);
-
+    protected function resolveValue(Request $request, ArgumentMetadata $argument, ParameterBag $valueBag): array
+    {
         // do not support if no value can be resolved at all
         // letting the \Symfony\Component\HttpKernel\Controller\ArgumentResolver\DefaultValueResolver be used
         // or \Symfony\Component\HttpKernel\Controller\ArgumentResolver fail with a meaningful error.

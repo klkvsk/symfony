@@ -3,37 +3,50 @@
 namespace Symfony\Component\HttpKernel\Tests\Controller;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\FromBody;
+use Symfony\Component\HttpKernel\Attribute\FromFile;
 use Symfony\Component\HttpKernel\Attribute\FromHeader;
 use Symfony\Component\HttpKernel\Attribute\MapDateTime;
 use Symfony\Component\HttpKernel\Attribute\FromQuery;
 use Symfony\Component\HttpKernel\Attribute\FromRoute;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolverInterface;
-use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
+use Symfony\Component\HttpKernel\Controller\RequestParameterValueResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadataFactory;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Tests\Fixtures\Suit;
 use Symfony\Component\Uid\AbstractUid;
 use Symfony\Component\Uid\UuidV1;
+use Symfony\Component\Validator\Constraints\DateTime;
 
-class ValueBagResolverTraitTest extends TestCase
+class RequestParameterValueResolverTraitTest extends TestCase
 {
     protected ArgumentResolverInterface $argumentResolver;
 
-    public static function intValues()
+    public static function intValues(): array
     {
         return [
             '123'            => [ 123, 123 ],
             '"123"'          => [ 123, '123' ],
-            '"10e2"'         => [ null, '10e2' ],
             '(empty string)' => [ null, '' ],
         ];
     }
 
-    public static function boolValues()
+    public static function floatValues(): array
+    {
+        return [
+            '1.23'            => [ 1.23, 1.23 ],
+            '"1.23"'          => [ 1.23, '1.23' ],
+            '(empty string)'  => [ null, '' ],
+        ];
+    }
+
+    public static function boolValues(): array
     {
         return [
             '"true"'         => [ true, 'true' ],
@@ -146,6 +159,28 @@ class ValueBagResolverTraitTest extends TestCase
         $this->assertEquals([ 'bar' ], $args);
     }
 
+    public function testFromFile()
+    {
+        $file = __DIR__.'/../Fixtures/Controller/ArgumentResolver/UploadedFile/file-small.txt';
+        $request = new Request(files: [
+            'attach' => [
+                'name' => 'file-small.txt',
+                'type' => 'text/plain',
+                'tmp_name' => $file,
+                'size' => filesize($file),
+                'error' => UPLOAD_ERR_OK,
+            ]
+        ]);
+
+        $args = $this->argumentResolver->getArguments(
+            $request,
+            fn(#[FromFile] UploadedFile $attach) => $attach,
+        );
+        $this->assertCount(1, $args);
+        $this->assertInstanceOf(UploadedFile::class, $args[0]);
+        $this->assertSame('file-small.txt', $args[0]->getClientOriginalName());
+    }
+
     public function testInt()
     {
         $args = $this->argumentResolver->getArguments(
@@ -159,30 +194,55 @@ class ValueBagResolverTraitTest extends TestCase
             fn(#[FromQuery] ?int $page) => $page,
         );
         $this->assertEquals([ null ], $args);
+    }
+
+    public function testValidationFailed()
+    {
+        $this->expectException(BadRequestHttpException::class);
+        $this->argumentResolver->getArguments(
+            new Request(query: [ 'page' => 'not-an-integer' ]),
+            fn(#[FromQuery()] ?int $page) => $page,
+        );
+    }
+
+    public function testEmptyStringAsNull()
+    {
+        $args = $this->argumentResolver->getArguments(
+            new Request(query: [ 'page' => '' ]),
+            fn(#[FromQuery] ?int $page) => $page,
+        );
+        $this->assertEquals([ null ], $args);
 
         $args = $this->argumentResolver->getArguments(
-            new Request(query: [ 'page' => 'not-an-integer' ]),
-            fn(#[FromQuery] ?int $page) => $page,
+            new Request(query: [ 'weight' => '' ]),
+            fn(#[FromQuery] ?float $weight) => $weight,
+        );
+        $this->assertEquals([ null ], $args);
+
+        $args = $this->argumentResolver->getArguments(
+            new Request(query: [ 'title' => '' ]),
+            fn(#[FromQuery] ?int $title) => $title,
         );
         $this->assertEquals([ null ], $args);
     }
 
-    public function testMultipleGoodAfterFailed()
+    public function testEmptyStringAsNullDisabled()
     {
-        $args = $this->argumentResolver->getArguments(
-            new Request(query: [ 'page' => 'not-an-integer' ], request: [ 'page' => 2 ]),
-            fn(#[FromQuery] #[FromBody] ?int $page) => $page,
+        $this->expectException(BadRequestHttpException::class);
+        $this->argumentResolver->getArguments(
+            new Request(query: [ 'page' => '' ]),
+            fn(#[FromQuery(options: null)] ?int $page) => $page,
         );
-        $this->assertEquals([ 2 ], $args);
     }
 
-    public function testMultipleFailedAfterGood()
+    public function testMultipleAttributesDisallowed()
     {
-        $args = $this->argumentResolver->getArguments(
-            new Request(query: [ 'page' => 'not-an-integer' ], request: [ 'page' => 2 ]),
-            fn(#[FromBody] #[FromQuery] ?int $page) => $page,
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Multiple');
+        $this->argumentResolver->getArguments(
+            new Request(query: [ 'page' => 1 ], request: [ 'page' => 2 ]),
+            fn(#[FromQuery] #[FromBody] ?int $page) => $page,
         );
-        $this->assertEquals([ 2 ], $args);
     }
 
     /** @dataProvider intValues */
@@ -195,11 +255,21 @@ class ValueBagResolverTraitTest extends TestCase
         $this->assertEquals([ $expected ], $args);
     }
 
+    /** @dataProvider floatValues */
+    public function testFloatFromQuery($expected, $actual)
+    {
+        $args = $this->argumentResolver->getArguments(
+            new Request(query: [ 'float' => $actual ]),
+            fn(#[FromQuery] ?float $float) => $float,
+        );
+        $this->assertEquals([ $expected ], $args);
+    }
+
     public function testFilterFlags()
     {
         $args = $this->argumentResolver->getArguments(
             new Request(query: [ 'int' => '0xff' ]),
-            fn(#[FromQuery] ?int $int) => $int,
+            fn(#[FromQuery(throwOnFilterFailure: false)] ?int $int) => $int,
         );
         $this->assertEquals([ null ], $args);
 
@@ -224,26 +294,27 @@ class ValueBagResolverTraitTest extends TestCase
         );
         $this->assertEquals([ 42 ], $args);
 
-        $args = $this->argumentResolver->getArguments(
+        $this->expectException(BadRequestHttpException::class);
+        $this->argumentResolver->getArguments(
             new Request(query: [ 'int' => 42 ]),
             fn(#[FromQuery(options: [ 'max_range' => 10 ])] ?int $int) => $int,
         );
-        $this->assertEquals([ null ], $args);
     }
 
     public function testFilterFlagAndOptions()
     {
         $args = $this->argumentResolver->getArguments(
             new Request(query: [ 'int' => 42 ]),
-            fn(#[FromQuery(options: [ 'flags' => FILTER_FLAG_ALLOW_HEX, 'max_range' => 10 ])] ?int $int) => $int,
-        );
-
-        $this->assertEquals([ null ], $args);
-        $args = $this->argumentResolver->getArguments(
-            new Request(query: [ 'int' => 42 ]),
             fn(#[FromQuery(options: [ 'flags' => FILTER_FLAG_ALLOW_HEX, 'max_range' => 100 ])] ?int $int) => $int,
         );
         $this->assertEquals([ 42 ], $args);
+
+        $this->expectException(BadRequestHttpException::class);
+        $this->argumentResolver->getArguments(
+            new Request(query: [ 'int' => 42 ]),
+            fn(#[FromQuery(options: [ 'flags' => FILTER_FLAG_ALLOW_HEX, 'max_range' => 10 ])] ?int $int) => $int,
+        );
+
     }
 
     /** @dataProvider boolValues */
@@ -346,17 +417,37 @@ class ValueBagResolverTraitTest extends TestCase
 
     public function testVariadicEnum()
     {
-        // TODO
+        $args = $this->argumentResolver->getArguments(
+            new Request(query: [ 'foo' => [ 'H', 'S' ] ]),
+            fn(#[FromQuery('foo')] Suit ...$foo) => $foo,
+        );
+        $this->assertSame([ Suit::Hearts, Suit::Spades ], $args);
     }
 
     public function testVariadicUid()
     {
-        // TODO
+        $uids = [
+            new UuidV1(),
+            new UuidV1(),
+        ];
+        $args = $this->argumentResolver->getArguments(
+            new Request(query: [ 'foo' => [ $uids[0]->toString(), $uids[1]->toString() ] ]),
+            fn(#[FromQuery('foo')] AbstractUid ...$foo) => $foo,
+        );
+        $this->assertEquals($uids, $args);
     }
 
     public function testVariadicDateTime()
     {
-        // TODO
+        $dates = [
+            new \DateTimeImmutable('2021-01-01 01:01:01'),
+            new \DateTimeImmutable('2021-02-02 02:02:02'),
+        ];
+        $args = $this->argumentResolver->getArguments(
+            new Request(query: [ 'foo' => [ $dates[0]->getTimestamp(), $dates[1]->format(\DATE_ATOM) ] ]),
+            fn(#[FromQuery('foo')] \DateTimeInterface ...$foo) => $foo,
+        );
+        $this->assertEquals($dates, $args);
     }
 
     public function testExtraParametersAreKept()
@@ -404,10 +495,11 @@ class ValueBagResolverTraitTest extends TestCase
 }
 
 class test_AllBagParametersValueResolver implements ValueResolverInterface {
-    use ValueBagResolverTrait;
-    public function resolve(Request $request, ArgumentMetadata $argument): iterable
+    use RequestParameterValueResolverTrait;
+
+    public function resolveValue(Request $request, ArgumentMetadata $argument, ParameterBag $valueBag): array
     {
-        $valueBag = $this->resolveValueBag($request, $argument);
         return [ $valueBag->all() ];
     }
+
 }

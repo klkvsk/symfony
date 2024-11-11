@@ -12,33 +12,38 @@
 namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 
 use Psr\Clock\ClockInterface;
+use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Attribute\MapDateTime;
-use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
+use Symfony\Component\HttpKernel\Controller\RequestParameterValueResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Convert DateTime instances from request attribute variable.
+ * Convert DateTime instances from request parameter value.
  *
  * @author Benjamin Eberlei <kontakt@beberlei.de>
  * @author Tim Goudriaan <tim@codedmonkey.com>
+ * @author Mike Kulakovsky <mike@kulakovs.ky>
  */
 final class DateTimeValueResolver implements ValueResolverInterface
 {
-    use ValueBagResolverTrait;
+    use RequestParameterValueResolverTrait;
 
     public function __construct(
         private readonly ?ClockInterface $clock = null,
     ) {
     }
 
-    public function resolve(Request $request, ArgumentMetadata $argument): array
+    protected function supports(ArgumentMetadata $argument): bool
     {
-        $valueBag = $this->resolveValueBag($request, $argument);
+        return is_a($argument->getType(), \DateTimeInterface::class, true);
+    }
 
-        if (!is_a($argument->getType(), \DateTimeInterface::class, true) || !$valueBag->has($argument->getName())) {
+    protected function resolveValue(Request $request, ArgumentMetadata $argument, ParameterBag $valueBag): array
+    {
+        if (!$valueBag->has($argument->getName())) {
             return [];
         }
 

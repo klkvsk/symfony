@@ -20,6 +20,8 @@ use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
  *
  * @author Ruud Kamphuis <ruud@ticketswap.com>
  * @author Ionut Enache <i.ovidiuenache@yahoo.com>
+ *
+ * @deprecated Use #[FromQuery] instead.
  */
 #[\Attribute(\Attribute::TARGET_PARAMETER)]
 final class MapQueryParameter extends ValueResolver

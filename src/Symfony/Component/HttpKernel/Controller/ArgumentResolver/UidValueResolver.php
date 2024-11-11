@@ -11,28 +11,39 @@
 
 namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 
+use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
+use Symfony\Component\HttpKernel\Controller\RequestParameterValueResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Uid\AbstractUid;
 
+/**
+ * Convert to Uid instance from request parameter value.
+ *
+ * @author Thomas Calvet
+ * @author Nicolas Grekas <p@tchwork.com>
+ * @author Mike Kulakovsky <mike@kulakovs.ky>
+ */
 final class UidValueResolver implements ValueResolverInterface
 {
-    use ValueBagResolverTrait;
+    use RequestParameterValueResolverTrait;
 
-    public function resolve(Request $request, ArgumentMetadata $argument): array
+    protected function supports(ArgumentMetadata $argument): bool
     {
-        $valueBag = $this->resolveValueBag($request, $argument);
+        $uidClass = $argument->getType();
+        return $uidClass && is_subclass_of($uidClass, AbstractUid::class, true);
+    }
 
-        if ($argument->isVariadic()
-            || !\is_string($value = $valueBag->get($argument->getName()))
-            || null === ($uidClass = $argument->getType())
-            || !is_subclass_of($uidClass, AbstractUid::class, true)
-        ) {
+    protected function resolveValue(Request $request, ArgumentMetadata $argument, ParameterBag $valueBag): array
+    {
+        if (!$valueBag->has($argument->getName()) || !\is_string($value = $valueBag->get($argument->getName()))) {
             return [];
         }
+
+        /** @var class-string<AbstractUid> $uidClass */
+        $uidClass = $argument->getType();
 
         try {
             return [$uidClass::fromString($value)];

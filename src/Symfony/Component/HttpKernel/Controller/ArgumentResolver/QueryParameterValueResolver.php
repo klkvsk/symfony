@@ -24,6 +24,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * @author Nicolas Grekas <p@tchwork.com>
  * @author Mateusz Anders <anders_mateusz@outlook.com>
  * @author Ionut Enache <i.ovidiuenache@yahoo.com>
+ *
+ * @deprecated Covered by RequestAttributeValueResolver and BackedEnumValueResolver with use of #[FromQuery].
  */
 final class QueryParameterValueResolver implements ValueResolverInterface
 {

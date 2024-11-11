@@ -11,24 +11,24 @@
 
 namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 
+use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Controller\ValueBagResolverTrait;
+use Symfony\Component\HttpKernel\Controller\RequestParameterValueResolverTrait;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
 /**
- * Yields a non-variadic argument's value from the request attributes.
+ * Provides a value for controller argument of types: string, int, float, bool, array.
  *
  * @author Iltar van der Berg <kjarli@gmail.com>
+ * @author Mike Kulakovsky <mike@kulakovs.ky>
  */
 final class RequestAttributeValueResolver implements ValueResolverInterface
 {
-    use ValueBagResolverTrait;
+    use RequestParameterValueResolverTrait;
 
-    public function resolve(Request $request, ArgumentMetadata $argument): array
+    protected function resolveValue(Request $request, ArgumentMetadata $argument, ParameterBag $valueBag): array
     {
-        $valueBag = $this->resolveValueBag($request, $argument);
-
-        return !$argument->isVariadic() && $valueBag->has($argument->getName()) ? [ $valueBag->get($argument->getName()) ] : [];
+        return $valueBag->has($argument->getName()) ? [ $valueBag->get($argument->getName()) ] : [];
     }
 }

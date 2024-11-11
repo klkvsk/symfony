@@ -35,9 +35,9 @@ class UidValueResolverTest extends TestCase
     public static function provideSupports()
     {
         return [
-            'Variadic argument' => [false, new Request([], [], ['foo' => (string) $uuidV4 = new UuidV4()]), new ArgumentMetadata('foo', UuidV4::class, true, false, null)],
+            'Variadic argument as single' => [true, new Request([], [], ['foo' => (string) $uuidV4 = new UuidV4()]), new ArgumentMetadata('foo', UuidV4::class, true, false, null)],
+            'Variadic argument' => [true, new Request([], [], ['foo' => [(string) $uuidV4 = new UuidV4()]]), new ArgumentMetadata('foo', UuidV4::class, true, false, null)],
             'No attribute for argument' => [false, new Request([], [], []), new ArgumentMetadata('foo', UuidV4::class, false, false, null)],
-            'Attribute is not a string' => [false, new Request([], [], ['foo' => ['bar']]), new ArgumentMetadata('foo', UuidV4::class, false, false, null)],
             'Argument has no type' => [false, new Request([], [], ['foo' => (string) $uuidV4]), new ArgumentMetadata('foo', null, false, false, null)],
             'Argument type is not a class' => [false, new Request([], [], ['foo' => (string) $uuidV4]), new ArgumentMetadata('foo', 'string', false, false, null)],
             'Argument type is not a subclass of AbstractUid' => [false, new Request([], [], ['foo' => (string) $uuidV4]), new ArgumentMetadata('foo', UlidFactory::class, false, false, null)],
@@ -76,7 +76,7 @@ class UidValueResolverTest extends TestCase
     /**
      * @dataProvider provideResolveKO
      */
-    public function testResolveKO(string $requestUid, string $argumentType)
+    public function testResolveKO(mixed $requestUid, string $argumentType)
     {
         $this->expectException(NotFoundHttpException::class);
         $this->expectExceptionMessage('The uid for the "id" parameter is invalid.');
