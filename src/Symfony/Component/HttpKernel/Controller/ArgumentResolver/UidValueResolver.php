@@ -33,6 +33,7 @@ final class UidValueResolver implements ValueResolverInterface
     protected function supports(ArgumentMetadata $argument): bool
     {
         $uidClass = $argument->getType();
+
         return $uidClass && is_subclass_of($uidClass, AbstractUid::class, true);
     }
 

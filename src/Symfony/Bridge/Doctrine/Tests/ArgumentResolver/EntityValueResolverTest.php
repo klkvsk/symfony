@@ -298,7 +298,6 @@ class EntityValueResolverTest extends TestCase
         $this->assertSame([$article], $resolver->resolve($request, $argument2));
     }
 
-
     public function testResolveFromValueBag()
     {
         $manager = $this->createMock(ObjectManager::class);
@@ -309,7 +308,7 @@ class EntityValueResolverTest extends TestCase
         $request->query->set('conference_place', 'vienna');
         $request->query->set('conference_year', '2024');
 
-        $argument1 = $this->createArgument('Conference', new MapEntity('Conference', mapping: ['conference_place' => 'place', 'conference_year' => 'year']), 'conference', false, [ new FromQuery('*') ]);
+        $argument1 = $this->createArgument('Conference', new MapEntity('Conference', mapping: ['conference_place' => 'place', 'conference_year' => 'year']), 'conference', false, [new FromQuery('*')]);
 
         $manager->expects($this->never())
             ->method('getClassMetadata');
@@ -320,8 +319,8 @@ class EntityValueResolverTest extends TestCase
         $repository->expects($this->any())
             ->method('findOneBy')
             ->willReturnCallback(static fn ($v) => match ($v) {
-                ['place' => 'vienna', 'year' => '2024' ] => $conference,
-                default => dd($v)
+                ['place' => 'vienna', 'year' => '2024'] => $conference,
+                default => dd($v),
             });
 
         $manager->expects($this->any())
@@ -422,8 +421,8 @@ class EntityValueResolverTest extends TestCase
     public static function provideExpressionMapsToArgumentFromQueryExpressions(): array
     {
         return [
-            'with args in global scope' => [ 'repository.findByPlaceAndYear(place, year)' ],
-            'with args in argument value scope' => [ 'repository.findByPlaceAndYear(conference.place, conference.year)' ]
+            'with args in global scope' => ['repository.findByPlaceAndYear(place, year)'],
+            'with args in argument value scope' => ['repository.findByPlaceAndYear(conference.place, conference.year)'],
         ];
     }
 
@@ -444,7 +443,7 @@ class EntityValueResolverTest extends TestCase
             new MapEntity(expr: $expr),
             'conference',
             false,
-            [ new FromQuery('*') ]
+            [new FromQuery('*')]
         );
 
         $repository = $this->createMock(ObjectRepository::class);
@@ -464,7 +463,7 @@ class EntityValueResolverTest extends TestCase
                 'request' => $request,
                 'place' => 'vienna',
                 'year' => '2024',
-                'conference' => [ 'place' => 'vienna', 'year' => '2024' ]
+                'conference' => ['place' => 'vienna', 'year' => '2024'],
             ])
             ->willReturn($object = new \stdClass());
 
@@ -565,6 +564,7 @@ class EntityValueResolverTest extends TestCase
         if ($entity) {
             $attributes[] = $entity;
         }
+
         return new ArgumentMetadata($name, $class ?? \stdClass::class, false, false, null, $isNullable, $attributes);
     }
 

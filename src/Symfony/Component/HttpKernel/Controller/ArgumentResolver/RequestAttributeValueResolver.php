@@ -29,6 +29,6 @@ final class RequestAttributeValueResolver implements ValueResolverInterface
 
     protected function resolveValue(Request $request, ArgumentMetadata $argument, ParameterBag $valueBag): array
     {
-        return $valueBag->has($argument->getName()) ? [ $valueBag->get($argument->getName()) ] : [];
+        return $valueBag->has($argument->getName()) ? [$valueBag->get($argument->getName())] : [];
     }
 }

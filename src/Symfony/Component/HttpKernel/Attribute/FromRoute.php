@@ -20,18 +20,17 @@ namespace Symfony\Component\HttpKernel\Attribute;
 class FromRoute extends FromRequestParameter
 {
     /**
-     * @param string|null $name The name of route attribute. Use "*" to collect all parameters. By default, the name of the argument in the controller will be used.
-     * @param int|array|null $filter The filter for `filter_var()` if int, or for `filter_var_array()` if array.
-     * @param int|array|null $options The filter flag mask if int, or options array. If $filter is array, $options accepts only an array with "add_empty" key to be used as 3rd argument for filter_var_array()
-     * @param bool $throwOnFilterFailure Whether to throw '400 Bad Request' on filtering failure or not, falling back to default (if any).
+     * @param string|null    $name                 The name of route attribute. Use "*" to collect all parameters. By default, the name of the argument in the controller will be used.
+     * @param int|array|null $filter               the filter for `filter_var()` if int, or for `filter_var_array()` if array
+     * @param int|array|null $options              The filter flag mask if int, or options array. If $filter is array, $options accepts only an array with "add_empty" key to be used as 3rd argument for filter_var_array()
+     * @param bool           $throwOnFilterFailure whether to throw '400 Bad Request' on filtering failure or not, falling back to default (if any)
      */
     public function __construct(
-        string|null    $name = null,
+        ?string $name = null,
         int|array|null $filter = null,
-        int|array|null $options = FILTER_FLAG_EMPTY_STRING_NULL,
-        bool           $throwOnFilterFailure = true,
-    )
-    {
+        int|array|null $options = \FILTER_FLAG_EMPTY_STRING_NULL,
+        bool $throwOnFilterFailure = true,
+    ) {
         parent::__construct('attributes', $name, $filter, $options, $throwOnFilterFailure);
     }
 }
